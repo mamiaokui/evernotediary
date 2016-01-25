@@ -11,7 +11,7 @@
   Full documentation of the Evernote API can be found at 
   http://dev.evernote.com/documentation/cloud/
  */
-
+package com.example.appengine.helloworld;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -19,6 +19,9 @@ import java.io.FileOutputStream;
 import java.security.MessageDigest;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Calendar;
+import java.util.ArrayList;
+import java.util.TimeZone;
 
 import com.evernote.auth.EvernoteAuth;
 import com.evernote.auth.EvernoteService;
@@ -123,7 +126,7 @@ public class EDAMDemo {
   // purpose of exploring the API, you can get a developer token that allows
   // you to access your own Evernote account. To get a developer token, visit
   // https://sandbox.evernote.com/api/DeveloperToken.action
-    private static final String AUTH_TOKEN = 
+    //private static final String AUTH_TOKEN = ;
 
   /***************************************************************************
    * You shouldn't need to change anything below here to run sample code *
@@ -132,6 +135,28 @@ public class EDAMDemo {
   private UserStoreClient userStore;
   private NoteStoreClient noteStore;
   private String newNoteGuid;
+  private String shardid;
+  private String userid;
+  private String noteGuid;
+
+
+ public static String getDataTitle(Calendar c) {
+     Calendar split = Calendar.getInstance();
+     split.set(2015, 1, 23);
+     int year = c.get(Calendar.YEAR);//获取年份
+     int month = c.get(Calendar.MONTH);//获取月份
+     month++;
+     int date =c.get(Calendar.DATE);//获取日；
+		  
+     boolean chineseDataMode = false;
+     if (c.compareTo(split) == 1)
+         chineseDataMode = true;
+		     
+     if (chineseDataMode)
+         return "" + year + "年" + month + "月" + date + "日";
+     else
+         return "" + year + "/" + month + "/" + date;
+ }    
 
   /**
    * Console entry point.
@@ -152,11 +177,83 @@ public class EDAMDemo {
     try {
         //demo.listNotes();
         //demo.createNote();
-      demo.searchNotes(args[0]);
-      System.out.println("<br \\>");
-      System.out.println("<br \\>");
-      System.out.println("<br \\>");
-      demo.searchNotes("2015/1/2");
+        //demo.searchNotes(args[0]);
+        Calendar now = Calendar.getInstance(TimeZone.getTimeZone("GMT+08:00"));
+
+        if (demo.searchNotes(getDataTitle(now), false) != null)
+            return ;
+	     
+        Calendar weekAgo = Calendar.getInstance(TimeZone.getTimeZone("GMT+08:00"));
+        weekAgo.set(Calendar.DATE, now.get(Calendar.DATE) - 6);
+	     
+        Calendar monthAgo = Calendar.getInstance(TimeZone.getTimeZone("GMT+08:00"));
+        monthAgo.set(Calendar.DATE, now.get(Calendar.DATE) - 30);
+	     
+        Calendar yearAgo = Calendar.getInstance(TimeZone.getTimeZone("GMT+08:00"));
+        yearAgo.set(Calendar.DATE, now.get(Calendar.DATE) - 364);
+
+        StringBuilder newDiary = new StringBuilder();
+
+        StringBuilder history = new StringBuilder();
+
+        Note note = demo.searchNotes("日记 - 2016年月日", true);
+        String newDiaryTemplete = note.getContent();
+        String notebookGuid = note.getNotebookGuid();
+
+        String newDiaryContent;
+        
+        //newDiary.append(newDiaryContent.replaceFirst("",));
+
+        //String begin = "<head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"></head>";
+        //System.out.println(begin);
+        String title = getDataTitle(weekAgo);
+        //System.out.println(title);
+        note = demo.searchNotes(title, false);
+        //System.err.println("mamk " + title + " " + demo.getEvernoteUrl());
+        if (note != null) {
+            newDiaryContent = "<a href=\"" + demo.getEvernoteUrl() +"\">一星期前:  " + title + "</a>\n"+"<br /><br />\n";
+            history.append(newDiaryContent);
+        }
+        
+        //System.out.println("<br \\>");
+        //System.out.println("<br \\>");
+        //System.out.println("<br \\>");
+
+        title = getDataTitle(monthAgo);
+        //System.out.println(title);
+        note = demo.searchNotes(title, false);
+        //System.err.println("mamk " + title + " " + demo.getEvernoteUrl());
+        if (note != null) {
+            newDiaryContent = "<a href=\"" + demo.getEvernoteUrl() +"\">一个月前:  " + title + "</a>\n"+"<br /><br />\n";
+            history.append(newDiaryContent);
+        }
+
+        //System.out.println("<br \\>");
+        //System.out.println("<br \\>");
+        //System.out.println("<br \\>");
+
+        title = getDataTitle(yearAgo);
+        //System.out.println(title);
+        note = demo.searchNotes(title, false);
+        //System.err.println("mamk " + title + " " + demo.getEvernoteUrl());
+        if (note != null) {
+            newDiaryContent = "<a href=\"" + demo.getEvernoteUrl() +"\">一年前:  " + title + "</a>\n"+"<br /><br />\n";
+            history.append(newDiaryContent);
+        }
+
+        newDiary.append(newDiaryTemplete.replaceFirst("history", history.toString()));
+        
+        
+        //newDiary.append("</en-note>");
+        //System.out.println(newDiary.toString());
+        List<String> tags = new ArrayList<String>();
+        tags.add("GridDiary");
+        demo.createNote(getDataTitle(now), newDiary.toString(), tags, notebookGuid);
+
+        //System.out.println("<br \\>");
+        //System.out.println("<br \\>");
+        //System.out.println("<br \\>");
+
       //      demo.updateNoteTag();
     } catch (EDAMUserException e) {
       // These are the most common error types that you'll need to
@@ -201,6 +298,8 @@ public class EDAMDemo {
 
     // Set up the NoteStore client
     noteStore = factory.createNoteStoreClient();
+    shardid = userStore.getPublicUserInfo("mamiaokui").getShardId();
+    userid = "" + userStore.getPublicUserInfo("mamiaokui").getUserId();
   }
 
   /**
@@ -235,11 +334,12 @@ public class EDAMDemo {
   /**
    * Create a new note containing a little text and the Evernote icon.
    */
-  private void createNote() throws Exception {
+    private void createNote(String title, String content, List<String> tags, String notebookGuid) throws Exception {
     // To create a new note, simply create a new Note object and fill in
     // attributes such as the note's title.
     Note note = new Note();
-    note.setTitle("Test note from EDAMDemo.java");
+    note.setTitle(title);
+    /*
 
     String fileName = "enlogo.png";
     String mimeType = "image/png";
@@ -268,6 +368,7 @@ public class EDAMDemo {
     // Resource using the MD5 hash.
     String hashHex = bytesToHex(resource.getData().getBodyHash());
 
+
     // The content of an Evernote note is represented using Evernote Markup
     // Language
     // (ENML). The full ENML specification can be found in the Evernote API
@@ -279,7 +380,10 @@ public class EDAMDemo {
         + "<span style=\"color:green;\">Here's the Evernote logo:</span><br/>"
         + "<en-media type=\"image/png\" hash=\"" + hashHex + "\"/>"
         + "</en-note>";
+    */
     note.setContent(content);
+    note.setNotebookGuid(notebookGuid);
+    note.setTagNames(tags);
 
     // Finally, send the new note to Evernote using the createNote method
     // The new Note object that is returned will contain server-generated
@@ -292,10 +396,14 @@ public class EDAMDemo {
     System.out.println();
   }
 
+  private String getEvernoteUrl() {
+      return "evernote:///view/"+userid+"/"+shardid+"/"+noteGuid+"/"+noteGuid+"/";
+  }
+
   /**
    * Search a user's notes and display the results.
    */
-  private void searchNotes(String title) throws Exception {
+  private Note searchNotes(String title, boolean getResult) throws Exception {
     // Searches are formatted according to the Evernote search grammar.
     // Learn more at
     // http://dev.evernote.com/documentation/cloud/chapters/Searching_notes.php
@@ -303,6 +411,7 @@ public class EDAMDemo {
     // In this example, we search for notes that have the term "EDAMDemo" in
     // the title.
     // This should return the sample note that we created in this demo app.
+    System.out.println("search: " + title);      
     String query = "intitle:" + title;
 
     // To search for notes with a specific tag, we could do something like
@@ -335,9 +444,18 @@ public class EDAMDemo {
       // is included.
       // To get the note content and/or binary resources, call getNote()
       // using the note's GUID.
-      Note fullNote = noteStore.getNote(note.getGuid(), true, true, true,
+      noteGuid = note.getGuid();
+      //System.err.println("mamk shardid " + note.getGuid());
+      System.out.println("find: " + title);      
+      
+      if (getResult) {
+          Note fullNote = noteStore.getNote(note.getGuid(), true, true, true,
           true);
-      System.out.println(fullNote.getContent());
+          //System.out.println("mamk" + + fullNote.getContent());
+          return fullNote;
+      }
+      return note;
+      /*
       //FileOutputStream fos = new FileOutputStream("/tmp/abc.jpg");
       for (int i = 0; i < fullNote.getResourcesSize(); i++) {
           byte[] b = fullNote.getResources().get(i).getData().getBody();
@@ -347,10 +465,13 @@ public class EDAMDemo {
           //System.out.println(MyBase64.encode(b));
           System.out.println(s);
       }
+      */
       //System.out.println("Note contains " + fullNote.getResourcesSize()
       //+ " resources");
       //System.out.println();
     }
+    System.out.println("no find: " + title);      
+    return null;
   }
 
   /**
